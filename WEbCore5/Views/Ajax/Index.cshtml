@@ -1,0 +1,418 @@
+﻿@{
+    ViewData["Title"] = "Ajax Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome Ajax</h1>
+</div>
+<hr style="border: 2px solid blue">
+<div class="text-center">
+    <h1>Teachers</h1>
+</div>
+<section id="mainTeachers"> Load...</section>
+
+<section id="newTeachers">
+    <input type="text" id="newTeacherName" />
+    <button id="btnCreate">Create</button>
+</section>
+<hr style="border: 2px solid blue">
+
+<div class="text-center">
+    <h1>Groups</h1>
+</div>
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <section id="allGroups"> Load...</section>
+        </div>
+        <div class="col">
+            <section >
+                <input type="text" style="margin-top: 10px" placeholder="Enter group`s name" id="newGroupName" /><br />
+                <select id="teachersForGroups" style="margin-top: 10px; margin-bottom:30px">
+                    <option selected="selected" disabled="disabled">Choose teacher (tutor)</option>
+
+                </select><br />
+                <button id="btnCreateGroup">Create Group</button>
+            </section>
+        </div>
+    </div>
+</div>
+<hr style="border: 2px solid blue">
+
+<div class="text-center">
+    <h1>Students</h1>
+</div>
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <section id="allStudents"> Load...</section>
+        </div>
+        <div class="col">
+            <section id="newStudent">
+                <input type="text" placeholder="Enter student`s name" id="newStudentName" /><br />
+                <select id="groupsForStudents" style="margin-top: 10px; margin-bottom:30px">
+                    <option selected="selected" disabled="disabled">Choose group</option>
+
+                </select><br />
+                <button id="btnCreateStudent">Create Student</button>
+            </section>
+        </div>
+    </div>
+</div>
+
+<hr style="border: 2px solid blue">
+
+
+<script>
+    //console.log("Ajax Ready");
+
+    //построение страницы по рез-там ответа от сервера
+    function renderTeachersList(json) {
+
+        //console.log("Get from Server:");
+        //console.log(json);
+
+        //1. получить всех учителей - операция read
+        //очистили секцию
+        let mainTeachers = document.getElementById("mainTeachers");
+        mainTeachers.innerHTML = "";
+
+        //создаем ul
+        let ul = document.createElement("ul");
+        let select = document.getElementById("teachersForGroups");
+        //создаем коллекцию элементов li и добавляем в ul
+        for (let i = 0; i < json.length; i++) {
+            let li = document.createElement("li");
+            li.textContent = json[i].name;
+            li.className = json[i].id;
+            //редактирование
+            li.ondblclick = function () {
+
+                let id = this.className;
+                let name = json[i].name;
+                this.innerHTML = '';
+
+                //поле id
+                let inId = document.createElement('input');
+                inId.type = "hidden";
+                inId.id = "editNowId";
+                inId.value = id;
+                this.appendChild(inId);
+
+                //поле имя
+                let inName = document.createElement('input');
+                inName.type = "text";
+                inName.id = "editNowName";
+                inName.value = name;
+                this.appendChild(inName);
+
+                //кнопка сохранить
+                let btnSave = document.createElement('input');
+                btnSave.type = "button";
+                btnSave.value = "Save";
+                btnSave.onclick = function () {
+                    let id = document.getElementById("editNowId").value;
+                    let name = document.getElementById("editNowName").value;
+                    fetch("/api/teachers/" + id, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id: id,
+                            name: name
+                        })
+                    })
+                    .then(fetchGetTeachers)
+                    .catch((ex) => {// обрабатываем возможную ошибку
+                        console.log("Error: " + ex.message);
+                        console.log("Response: " + ex.response);
+                    });
+                }
+                this.appendChild(btnSave);
+
+                //кнопка отмены
+                let btnCancel = document.createElement('input');
+                btnCancel.type = "button";
+                btnCancel.value = "Cancel";
+                btnCancel.onclick = function () {
+                    fetchGetTeachers();
+                }
+                this.appendChild(btnCancel);
+            }
+
+            //удаление
+
+            let span = document.createElement("span");
+            span.textContent = "-";
+            span.className = json[i].id;
+            span.onclick = function () {
+                console.log(this.className);
+                fetch("api/Teachers/" + this.className, {
+                    method: "DELETE"
+                })
+                    .then(fetchGetTeachers)
+                    .catch((ex) => {// обрабатываем возможную ошибку
+                        console.log("Error: " + ex.message);
+                        console.log("Response: " + ex.response);
+                    });
+            }
+            li.appendChild(span);
+            ul.appendChild(li);
+        }
+
+        //внедряем ul в нужный section
+        mainTeachers.appendChild(ul);
+    }
+
+    //выполнение запроса к серверу
+    function fetchGetTeachers() {
+
+        fetch("/api/Teachers")  //пошлем запрос Get (по умолчанию) по маршруту на сервер
+            .then(response => response.json())  //преобразуем ответ в json
+            .then(json => renderTeachersList(json)) //преоьразуем данные в метод
+            .catch((ex) => { // обрабатываем возможную ошибку
+                console.log("Error: " + ex.message);
+                console.log("Response: " + ex.response);
+            });
+    }
+    fetchGetTeachers();
+
+    //2операция - создаем нового учителя - create
+    function serverResponseAddTeacher(res) {
+        console.log(res);
+        //тут можно добавить в коллекцию нового учителя а не перегружать всех учителей
+    }
+
+    document.getElementById('btnCreate').onclick = () => {
+        let newTeacher = {
+            id: 0,
+            name: document.getElementById("newTeacherName").value
+        };
+        fetch("api/Teachers", {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newTeacher)
+        })
+            .then(fetchGetTeachers)
+            .catch((ex) => {// обрабатываем возможную ошибку
+                console.log("Error: " + ex.message);
+                console.log("Response: " + ex.response);
+            });
+        //.then(response => response.json())
+        //.then(json => serverResponseAddTeacher(json))
+        //.catch((ex) => {// обрабатываем возможную ошибку
+        //    console.log("Error: " + ex.message);
+        //    console.log("Response: " + ex.response);
+        //});
+        document.getElementById("newTeacherName").value = "";
+    }
+
+    //groups
+    function renderGroupsList(json) {
+        console.log(json);
+        let allGroups = document.getElementById("allGroups");
+        allGroups.innerHTML = "";
+        let table = document.createElement("table");
+        let tr = document.createElement("tr");
+        tr.className = "tableHeader";
+        tr.innerHTML = `<td>Name of Group</td><td>Teacher</td><td>Edit</td><td>Delete</td>`
+        table.appendChild(tr);
+        for (let i = 0; i < json.length; i++) {
+            let btnEdit = document.createElement("button");
+            btnEdit.innerText = "Edit";
+            btnEdit.className = "btnEdit";
+            btnEdit.id = json[i].id;
+            btnEdit.onclick = function () {
+
+            }
+            let btnDel = document.createElement("button");
+            btnDel.innerText = "Delete";
+            btnDel.className = "btnDel";
+            btnDel.id = json[i].id;
+            btnDel.onclick = function () {
+                console.log(this.id);
+                fetch("api/Groups/" + this.id, {
+                    method: "DELETE"
+                })
+                    .then(fetchGetGroups)
+                    .then(fetchGetTeacherForGroups)
+                    .catch((ex) => {
+                        console.log("Error: " + ex.message);
+                        console.log("Response: " + ex.response);
+                    });
+            }
+            
+            tr = table.insertRow(i + 1);
+            let td1 = tr.insertCell(0);
+            td1.innerHTML = json[i].name;
+            let td2 = tr.insertCell(1);
+            td2.innerHTML = json[i].teacher;
+            let td3 = tr.insertCell(2);
+            td3.appendChild(btnEdit);
+            let td4 = tr.insertCell(3);
+            td4.appendChild(btnDel);
+            table.appendChild(tr);
+            console.log(table);
+        }       
+        allGroups.appendChild(table);
+    }
+
+    function fetchGetGroups() {       
+        fetch("/api/Groups")
+            .then(response => response.json())
+            .then(json => renderGroupsList(json))
+            .catch((ex) => {
+                console.log("Error: " + ex.message);
+                console.log("Response: " + ex.response);
+            }
+        ); 
+    }
+    fetchGetGroups();
+
+    function fetchGetTeacherForGroups() {
+        fetch("/api/Teachers/forGroups")
+            .then(response => response.json())
+            .then(json => renderTeacherForGroups(json))
+            .catch((ex) => {
+                console.log("Error: " + ex.message);
+                console.log("Response: " + ex.response);
+            });
+    }
+
+    function renderTeacherForGroups(json) {
+        let teachersForGroups = document.getElementById("teachersForGroups");
+        let str = ` <option selected="selected" disabled="disabled">Choose teacher (tutor)</option>`;
+        for (var i = 0; i < json.length; i++) {
+            str += `<option value="${json[i].id}">${json[i].name}</option>`
+        }
+        teachersForGroups.innerHTML = str;
+    }
+    fetchGetTeacherForGroups();
+
+    //create new group
+    document.getElementById("btnCreateGroup").onclick = () =>{
+        let newGroup = {
+            id: 0,
+            name: document.getElementById("newGroupName").value,
+            teacherId: document.getElementById('teachersForGroups').value
+        };
+        document.getElementById("newGroupName").value = "";
+        fetch("api/Groups", {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newGroup)
+        })
+            .then(fetchGetGroups)
+            .then(fetchGetTeacherForGroups)
+            .catch((ex) => {
+                console.log("Error: " + ex.message);
+                console.log("Response: " + ex.response);
+            });
+        console.log(newGroup);
+    }
+    //students
+    function renderStudentsList(json) {
+        console.log(json);
+        let allStudents = document.getElementById("allStudents");
+        allStudents.innerHTML = "";
+        let table = document.createElement("table");
+        let tr = document.createElement("tr");
+        tr.className = "tableHeader";
+        tr.innerHTML = `<td>Student</td><td>Group</td><td>Teacher</td><td>Edit</td><td>Delete</td>`
+        table.appendChild(tr);
+        for (let i = 0; i < json.length; i++) {
+            let btnEdit = document.createElement("button");
+            btnEdit.innerText = "Edit";
+            btnEdit.className = "btnEdit";
+            btnEdit.id = json[i].id;
+            btnEdit.onclick = function () {
+
+            }
+            let btnDel = document.createElement("button");
+            btnDel.innerText = "Delete";
+            btnDel.className = "btnDel";
+            btnDel.id = json[i].id;
+            btnDel.onclick = function () {
+                console.log(this.id);
+                fetch("api/Students/" + this.id, {
+                    method: "DELETE"
+                })
+                    .then(fetchGetStudents)
+                    .catch((ex) => {
+                        console.log("Error: " + ex.message);
+                        console.log("Response: " + ex.response);
+                    });
+            }
+
+            tr = table.insertRow(i + 1);
+            let td1 = tr.insertCell(0);
+            td1.innerHTML = json[i].name;
+            let td2 = tr.insertCell(1);
+            td2.innerHTML = json[i].group;
+            let td3 = tr.insertCell(2);
+            td3.innerHTML = json[i].teacher;
+            let td4 = tr.insertCell(3);
+            td4.appendChild(btnEdit);
+            let td5 = tr.insertCell(4);
+            td5.appendChild(btnDel);
+            table.appendChild(tr);
+            console.log(table);
+        }
+        allStudents.appendChild(table);
+    }
+
+    function fetchGetStudents() {
+        fetch("/api/Students")
+            .then(response => response.json())
+            .then(json => renderStudentsList(json))
+            .catch((ex) => {
+                console.log("Error: " + ex.message);
+                console.log("Response: " + ex.response);
+            }
+            );
+    }
+    fetchGetStudents();
+
+    function fetchGetGroupsForStudents() {
+        fetch("/api/Groups")
+            .then(response => response.json())
+            .then(json => renderGroupsForStudents(json))
+            .catch((ex) => {
+                console.log("Error: " + ex.message);
+                console.log("Response: " + ex.response);
+            });
+    }
+
+    function renderGroupsForStudents(json) {
+        let GroupsForStudents = document.getElementById("groupsForStudents");
+        let str = `<option selected="selected" disabled="disabled">Choose group</option>`;
+        for (var i = 0; i < json.length; i++) {
+            str += `<option value="${json[i].id}">${json[i].name}(${json[i].teacher})</option >`
+        }
+        GroupsForStudents.innerHTML = str;
+      
+    }
+    fetchGetGroupsForStudents()
+
+    //create new student
+    document.getElementById("btnCreateStudent").onclick = () => {
+        let newStudent = {
+            id: 0,
+            name: document.getElementById("newStudentName").value,
+            groupId: document.getElementById('groupsForStudents').value
+        };
+        document.getElementById("newStudentName").value = "";
+        document.getElementById('groupsForStudents').selectedIndex = 0;
+        fetch("api/Students", {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newStudent)
+        })
+        .then(fetchGetStudents)
+        .catch((ex) => {
+                console.log("Error: " + ex.message);
+                console.log("Response: " + ex.response);
+        });        
+    }
+
+
+</script>
